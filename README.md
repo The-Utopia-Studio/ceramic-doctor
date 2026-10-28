@@ -47,7 +47,7 @@ After global installation, add this server to your MCP client. Choose the projec
 }
 ```
 
-An npx configuration works without a global CLI install:
+An npx configuration can run without a global CLI install. The initial GitHub dependency install can exceed MCP clients' startup timeout; preinstall the CLI as above for reliable startup, or increase your client's startup timeout before using this alternative:
 
 ```json
 {
