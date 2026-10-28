@@ -8,7 +8,7 @@ import { codexVisualReview } from './model.mjs'
 
 export { runDoctor, normalizeInput, verifyFindings }
 
-export async function review(input, { projectRoot = process.cwd(), baseline, visualJudge = codexVisualReview, signal } = {}) {
+export async function review(input, { projectRoot = process.cwd(), baseline, visualJudge = codexVisualReview, signal, browserLauncher = launchBrowser, contextPolicy } = {}) {
   signal?.throwIfAborted()
   input = normalizeInput(input)
   if (baseline && baseline.scopeHash !== scopeHash(input)) throw new Error('Verification scope differs from the original review.')
@@ -48,10 +48,10 @@ export async function review(input, { projectRoot = process.cwd(), baseline, vis
     signal?.addEventListener('abort', closeBrowser, { once: true })
     try {
       signal?.throwIfAborted()
-      browser = await launchBrowser()
+      browser = await browserLauncher()
       for (const scenario of input.scenarios) for (const viewport of viewports) {
         signal?.throwIfAborted()
-        const screen = await inspectScenario(browser, input, scenario, viewport, directory)
+        const screen = await inspectScenario(browser, input, scenario, viewport, directory, contextPolicy)
         screens.push(screen)
         report.coverage.push(screen.coverage)
         report.findings.push(...screen.findings)

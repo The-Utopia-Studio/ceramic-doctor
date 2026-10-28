@@ -1,6 +1,6 @@
 {
   "name": "@utopia-studio-design/ceramic-doctor",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Evidence-backed Ceramic design review: Doctor, browser QA, visual review and fix verification over CLI and MCP.",
   "type": "module",
   "license": "MIT",
@@ -23,15 +23,23 @@
   ],
   "scripts": {
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
-    "check": "node --check bin/ceramic-doctor.mjs && node --check src/review.mjs && node --check src/browser.mjs && node --check src/model.mjs && node --check src/mcp.mjs"
+    "check": "node --check bin/ceramic-doctor.mjs && node --check src/review.mjs && node --check src/browser.mjs && node --check src/model.mjs && node --check src/mcp.mjs && node --check src/remote.mjs && node --check src/public-network.mjs && node --check src/remote-store.mjs"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.17"
   },
   "dependencies": {
     "@axe-core/playwright": "4.14.0",
     "@modelcontextprotocol/sdk": "1.32.2",
+    "@sparticuz/chromium": "153.0.0",
     "@utopia-studio-design/design-system-cli": "0.8.10",
+    "@vercel/blob": "2.8.2",
+    "ipaddr.js": "2.5.0",
     "playwright": "1.64.1"
+  },
+  "overrides": {
+    "@vercel/cli-config": {
+      "zod": "4.6.7"
+    }
   }
 }

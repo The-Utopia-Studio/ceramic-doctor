@@ -29,7 +29,7 @@ export const toolDefinitions = [
 ]
 
 export async function startMcp(projectRoot) {
-  const server = new Server({ name: 'ceramic-doctor', version: '0.1.0' }, { capabilities: { tools: {} },
+  const server = new Server({ name: 'ceramic-doctor', version: '0.2.0' }, { capabilities: { tools: {} },
     instructions: 'Ceramic Doctor provides evidence-backed design review. Call doctor without url for library diagnostics, or design_review with a URL. Default checks are local and do not call a model. visual=codex is optional and consumes the local Codex allowance. For hydrated apps supply readySelector. Fix source under its existing semantic contracts, then verify_fixes using the original reviewId. Never treat skipped checks, an unavailable model, or a technical score as visual approval. Report execution separately from verdict. The server writes reports only under its configured project root.' })
   let active = false
   server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: toolDefinitions }))

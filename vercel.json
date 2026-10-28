@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node --check api/mcp.mjs",
+  "outputDirectory": "public",
+  "functions": {
+    "api/mcp.mjs": {
+      "maxDuration": 180,
+      "memory": 2048,
+      "includeFiles": "{node_modules/@sparticuz/chromium/bin/**,node_modules/@utopia-studio-design/design-system-cli/data/**,node_modules/@utopia-studio-design/design-system-cli/bin/**,node_modules/@utopia-studio-design/design-system-cli/package.json}"
+    }
+  },
+  "rewrites": [{ "source": "/mcp", "destination": "/api/mcp" }, { "source": "/", "destination": "/api/health" }],
+  "crons": [{ "path": "/api/cleanup", "schedule": "17 3 * * *" }]
+}

@@ -48,7 +48,7 @@ export async function launchBrowser() {
   return chromium.launch({ headless: true })
 }
 
-export async function inspectScenario(browser, input, scenario, viewport, directory) {
+export async function inspectScenario(browser, input, scenario, viewport, directory, contextPolicy) {
   const { id: viewportId, width, height, ...device } = viewport
   const context = await browser.newContext({ ...device, viewport: { width: viewport.width, height: viewport.height },
     locale: scenario.locale ?? 'en-US', reducedMotion: scenario.reducedMotion ?? 'reduce', serviceWorkers: 'block' })
@@ -61,6 +61,7 @@ export async function inspectScenario(browser, input, scenario, viewport, direct
   const evidence = { viewport: viewportId, scenario: scenario.id, screenshot: `${scenario.id}-${viewportId}.png` }
   const findings = []
   try {
+    if (contextPolicy) await contextPolicy(context)
     const response = await page.goto(scenario.url ?? input.url, { waitUntil: 'domcontentloaded', timeout: input.timeoutMs })
     await page.locator(scenario.readySelector ?? input.readySelector ?? 'body').waitFor({ state: 'visible' })
     await page.evaluate(() => Promise.race([document.fonts.ready, new Promise(resolve => setTimeout(resolve, 3000))]))
