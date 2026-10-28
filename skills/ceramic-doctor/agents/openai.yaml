@@ -1,0 +1,4 @@
+interface:
+  display_name: "Ceramic Doctor"
+  short_description: "Review UI with browser evidence and verify fixes"
+  default_prompt: "Use $ceramic-doctor to review this UI and verify scoped fixes with browser evidence."
