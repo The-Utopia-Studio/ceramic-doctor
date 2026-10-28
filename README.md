@@ -4,12 +4,46 @@ Evidence-backed design review for Ceramic and ordinary websites. Runs through a 
 
 Ceramic Doctor is independently runnable. It does not require Rams or Rams credits.
 
-## Install from GitHub
+## Connect to the hosted MCP
 
-Node.js 20+ is required. The initial distribution is GitHub; no npm publication is assumed.
+**URL: `https://ceramic-doctor.vercel.app/mcp`**
+
+Choose Streamable HTTP / remote MCP and authentication **None** in your client. No local installation, Node, browser, Codex CLI or API key is required.
+
+```json
+{
+  "mcpServers": {
+    "ceramic-doctor": {
+      "url": "https://ceramic-doctor.vercel.app/mcp"
+    }
+  }
+}
+```
+
+For Codex:
 
 ```sh
-npm install -g github:The-Utopia-Studio/ceramic-doctor#v0.1.0
+codex mcp add ceramic-doctor --url https://ceramic-doctor.vercel.app/mcp
+```
+
+Ask: “Use Ceramic Doctor to review https://utopia-design-system.vercel.app. Wait for `h1`, inspect desktop and mobile screenshots, explain the findings, then verify my fixes.” Substitute your public site and its actual readiness selector when reviewing your own work.
+
+The hosted server executes Doctor, Chromium and axe checks. Call `get_screenshot` and let your connected AI model judge visual hierarchy/readability/brand fit separately from measured defects. Hosted requests do not invoke the operator's personal Codex account. `visual` and project `qa` options belong to local execution only.
+
+Hosted tools have the same names below. `design_review` returns a complete **private `reviewId`**, including its random access capability. Supply that entire value to `get_review`, `get_screenshot`, and `verify_fixes`; it grants access for 24 hours, so keep it private. `list_reviews` accepts `reviewIds: [...]` and lists only those known reports, never other people's work. Reports and screenshots are stored in a private Blob store. Access expires after 24 hours; daily cleanup removes stored files after 48–72 hours.
+
+Anonymous browser execution is bounded: one run per caller per minute, a shared 30 runs per hour, up to two scenarios × two viewports, six explicit actions per scenario, and a 100-second execution budget. These are storage-backed reservations across server instances. A limit or unavailable check returns an error/partial run, never a fabricated pass.
+
+Hosted review accepts public HTTP(S) targets on ports 80/443. Localhost, private/reserved addresses, WebSockets and non-GET network operations are blocked. Every resource and redirect is checked through a DNS-pinned network proxy; site features depending on blocked operations may be incomplete and require local QA. The hosted service cannot inspect your local source files or authenticated/private applications.
+
+The service is deployed on Vercel. For self-hosting, link a **private** Vercel Blob store (providing `BLOB_READ_WRITE_TOKEN`) and set a random `CRON_SECRET` for the scheduled cleanup endpoint. Keep those deployment credentials in your host environment. No client API key is needed.
+
+## Install from GitHub
+
+Local execution requires Node.js 22.17+. Distribution is GitHub; no npm publication is assumed.
+
+```sh
+npm install -g github:The-Utopia-Studio/ceramic-doctor#v0.2.0
 ceramic-doctor install-browser
 ceramic-doctor review http://localhost:4173 --ready main
 ```
@@ -21,20 +55,20 @@ git clone https://github.com/The-Utopia-Studio/ceramic-doctor.git
 cd ceramic-doctor
 npm ci
 node bin/ceramic-doctor.mjs install-browser
-node bin/ceramic-doctor.mjs review https://example.com --ready main --json
+node bin/ceramic-doctor.mjs review https://utopia-design-system.vercel.app --ready h1 --json
 ```
 
 For a one-off invocation:
 
 ```sh
-npx --yes --package=github:The-Utopia-Studio/ceramic-doctor#v0.1.0 ceramic-doctor doctor
+npx --yes --package=github:The-Utopia-Studio/ceramic-doctor#v0.2.0 ceramic-doctor doctor
 ```
 
 Browser installation is one-time per Playwright version. On Linux, use `npx playwright install --with-deps chromium` from the cloned repository when system libraries are missing.
 
-## Connect over MCP
+## Connect over local MCP
 
-After global installation, add this server to your MCP client. Choose the project root where reports should be saved. The server runs locally over stdio; there is no public hosted HTTP endpoint.
+After global installation, you can alternatively run the server locally over stdio. Choose the project root where reports should be saved. This mode can access localhost and your existing Ceramic project QA gates.
 
 ```json
 {
@@ -54,7 +88,7 @@ An npx configuration can run without a global CLI install. The initial GitHub de
   "mcpServers": {
     "ceramic-doctor": {
       "command": "npx",
-      "args": ["--yes", "--package=github:The-Utopia-Studio/ceramic-doctor#v0.1.0", "ceramic-doctor", "mcp", "--project", "/absolute/path/to/your-project"]
+      "args": ["--yes", "--package=github:The-Utopia-Studio/ceramic-doctor#v0.2.0", "ceramic-doctor", "mcp", "--project", "/absolute/path/to/your-project"]
     }
   }
 }
@@ -172,8 +206,8 @@ npm test
 npm pack --dry-run
 ```
 
-Tests exercise real Chromium defects, same-scope fix verification, unavailable coverage, MCP initialization/calls/inline images with the official SDK, model-output validation and skill installation. Codex calls are opt-in and excluded from CI.
+Tests exercise real Chromium defects, same-scope fix verification, unavailable coverage, stdio/HTTP MCP calls and inline images with the official SDK, private report capabilities, atomic anonymous reservations, public-network restrictions, model-output validation and skill installation. Codex calls are opt-in and excluded from CI.
 
 ## 한국어
 
-Ceramic Doctor를 CLI·MCP·스킬로 사용할 수 있습니다. 기본 실행은 기존 Doctor와 브라우저 접근성·모바일 넘침·런타임 오류를 검사합니다. `--visual codex`는 실제 스크린샷의 디자인 판단을 추가합니다. 수정 제안은 보고서에 남기고, 에이전트가 수정한 뒤 `verify`/`verify_fixes`로 동일 조건을 다시 검증합니다. GitHub 설치와 MCP 설정은 위 예시를 사용하세요.
+원격 MCP 주소 `https://ceramic-doctor.vercel.app/mcp`에 인증 없음으로 연결하면 로컬 설치 없이 공개 웹사이트를 검사할 수 있습니다. 기본 실행은 Doctor와 브라우저 접근성·모바일 넘침·런타임 오류를 검사합니다. `get_screenshot`으로 실제 이미지를 받아 연결한 AI가 디자인을 판단하고, 에이전트가 소스를 수정한 뒤 `verify_fixes`로 같은 조건을 재검증합니다. 반환된 전체 reviewId는 비공개 보고서 접근 권한이므로 공유하지 마세요. localhost·소스 검사·Codex CLI 시각 리뷰가 필요하면 로컬 실행을 사용하세요.
