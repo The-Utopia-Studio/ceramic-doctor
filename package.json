@@ -1,0 +1,37 @@
+{
+  "name": "@utopia-studio-design/ceramic-doctor",
+  "version": "0.1.0",
+  "description": "Evidence-backed Ceramic design review: Doctor, browser QA, visual review and fix verification over CLI and MCP.",
+  "type": "module",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/The-Utopia-Studio/ceramic-doctor.git"
+  },
+  "bin": {
+    "ceramic-doctor": "bin/ceramic-doctor.mjs"
+  },
+  "exports": {
+    ".": "./src/review.mjs"
+  },
+  "files": [
+    "bin",
+    "src",
+    "skills",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test --test-concurrency=1 tests/*.test.mjs",
+    "check": "node --check bin/ceramic-doctor.mjs && node --check src/review.mjs && node --check src/browser.mjs && node --check src/model.mjs && node --check src/mcp.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@axe-core/playwright": "4.14.0",
+    "@modelcontextprotocol/sdk": "1.32.2",
+    "@utopia-studio-design/design-system-cli": "0.8.10",
+    "playwright": "1.64.1"
+  }
+}
