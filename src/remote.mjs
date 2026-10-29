@@ -98,6 +98,13 @@ export function createRemoteHandler(options = {}) {
     response.setHeader('Access-Control-Allow-Headers', 'Content-Type, Accept, MCP-Protocol-Version, MCP-Session-Id')
     response.setHeader('Cache-Control', 'no-store')
     if (request.method === 'OPTIONS') { response.writeHead(204).end(); return }
+    // Human navigation gets connection instructions; MCP GET requests still receive
+    // the stateless transport's 405 instead of being redirected into an HTML page.
+    const acceptedTypes = String(request.headers.accept ?? '').split(',').map(type => type.split(';')[0].trim().toLowerCase())
+    if (request.method === 'GET' && acceptedTypes.includes('text/html') && !acceptedTypes.includes('text/event-stream') && !request.headers['mcp-protocol-version']) {
+      response.writeHead(303, { Location: 'https://github.com/The-Utopia-Studio/ceramic-doctor#connect-to-the-hosted-mcp', Vary: 'Accept, MCP-Protocol-Version' }).end()
+      return
+    }
     if (request.method !== 'POST') { response.setHeader('Allow', 'POST, OPTIONS'); response.writeHead(405).end(); return }
     const server = createRemoteServer({ ...options, ip: options.ip ?? request.headers['x-vercel-forwarded-for']?.split(',')[0]?.trim() ?? request.socket.remoteAddress ?? 'unknown' })
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined, enableJsonResponse: true })

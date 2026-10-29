@@ -10,6 +10,8 @@ Ceramic Doctor is independently runnable. It does not require Rams or Rams credi
 
 Choose Streamable HTTP / remote MCP and authentication **None** in your client. No local installation, Node, browser, Codex CLI or API key is required.
 
+Enter the URL in your client's **MCP server/connector settings**. Opening it in a normal browser takes you to this connection guide; actual MCP calls use HTTP POST. Protocol GET requests remain unsupported by this stateless server.
+
 ```json
 {
   "mcpServers": {

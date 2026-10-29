@@ -89,6 +89,12 @@ test('HTTP MCP reviews with real Chromium, preserves private evidence across req
     assert.equal(after.structuredContent.verification.allClear, true, JSON.stringify(after))
     assert.equal((await client.callTool({ name: 'design_review', arguments: { url: 'https://example.com', visual: 'codex' } })).isError, true)
     assert.equal((await fetch(endpoint)).status, 405)
+    const navigation = await fetch(endpoint, { headers: { Accept: 'text/html,application/xhtml+xml;q=0.9' }, redirect: 'manual' })
+    assert.equal(navigation.status, 303)
+    assert.equal(navigation.headers.get('location'), 'https://github.com/The-Utopia-Studio/ceramic-doctor#connect-to-the-hosted-mcp')
+    assert.equal((await fetch(endpoint, { headers: { Accept: 'text/event-stream' } })).status, 405)
+    assert.equal((await fetch(endpoint, { headers: { Accept: 'text/html,text/event-stream' } })).status, 405)
+    assert.equal((await fetch(endpoint, { headers: { Accept: 'text/html', 'MCP-Protocol-Version': '2025-11-25' } })).status, 405)
     assert.equal((await fetch(endpoint, { method: 'OPTIONS' })).status, 204)
   } finally { await client.close(); await new Promise(resolve => http.close(resolve)) }
 })
