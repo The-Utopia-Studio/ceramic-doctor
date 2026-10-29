@@ -87,6 +87,8 @@ ceramic-doctor verify-code report.json --files updated-whole-files.json --json
 
 ### Source review over MCP
 
+If you already use Ceramic MCP, these tools are available on the existing Ceramic connection at `https://ceramic-chatgpt.vercel.app/mcp`; refresh/reconnect it once. A separate Doctor connection is unnecessary for source review. See [the Ceramic integration](integrations/ceramic/README.md).
+
 The same remote URL below now exposes **`review_files`** and **`verify_code_fixes`**. Your coding agent can submit the explicitly selected changed UI files, receive findings/score/fix proposals, edit locally, and revalidate. The server does not pull a local repository or require GitHub credentials. Submitted source is parsed in an isolated 256 MiB worker with a 15-second budget and is not persisted by the application.
 
 MCP payloads allow 20 files, 128 KiB per file and 500 KiB total (including a previous report for verification). Send only source authorized for review; split larger requests into explicit batches and keep coverage gaps visible. Hosted source and browser reviews share the anonymous quota; local CLI/GitHub Action checks have no hosted quota. The host AI may add clearly labelled judgement from the code, while deterministic source findings remain separate from model opinions and rendered evidence.
