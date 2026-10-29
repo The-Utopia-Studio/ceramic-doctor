@@ -95,7 +95,7 @@ MCP payloads allow 20 files, 128 KiB per file and 500 KiB total (including a pre
 
 ## Integrate with an existing MCP
 
-The portable `@utopia-studio-design/ceramic-doctor-source` archive on the v0.3.1 GitHub release exports `codeToolDefinitions`, `validateCodeToolInput` and `runCodeTool`. It packages the same four engine modules with per-file SHA-256 hashes, without browser, Blob, MCP SDK or Ceramic CLI dependencies. Existing MCP servers can register `review_files` / `verify_code_fixes` and run the bounded worker in their own process. Submitted source does not need to be forwarded to the hosted Doctor service. Build the archive with `npm run pack:source`.
+The portable `@utopia-studio-design/ceramic-doctor-source` archive on the v0.3.1 GitHub release exports `codeToolDefinitions`, `validateCodeToolInput` and `runCodeTool`. It packages the same four engine modules with per-file SHA-256 hashes, without browser, Blob, MCP SDK or Ceramic CLI dependencies. Existing MCP servers can register `review_files` / `verify_code_fixes` and run the bounded worker in their own process. The release also includes a [local Ceramic MCP integration build](integrations/ceramic/README.md#update-an-existing-local-ceramic-installation), preserving the published CLI tools while adding source review on the same registration. Submitted source does not need to be forwarded to the hosted Doctor service. Build the archive with `npm run pack:source`.
 
 ## Connect to the hosted MCP
 

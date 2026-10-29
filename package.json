@@ -26,7 +26,8 @@
   "scripts": {
     "test": "node --test --test-concurrency=1 tests/*.test.mjs",
     "check": "node --check bin/ceramic-doctor.mjs && node --check src/review.mjs && node --check src/browser.mjs && node --check src/model.mjs && node --check src/mcp.mjs && node --check src/remote.mjs && node --check src/public-network.mjs && node --check src/remote-store.mjs && node --check src/code-review.mjs && node --check src/git-review.mjs && node --check src/code-integration.mjs && node --check src/code-report.mjs && node --check src/code-tools.mjs && node --check src/code-worker.mjs",
-    "pack:source": "node scripts/pack-source.mjs"
+    "pack:source": "node scripts/pack-source.mjs",
+    "pack:ceramic-mcp": "node scripts/pack-ceramic-mcp.mjs"
   },
   "engines": {
     "node": ">=22.17"

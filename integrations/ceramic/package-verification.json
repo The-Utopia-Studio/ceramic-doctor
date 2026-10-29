@@ -1,0 +1,23 @@
+{
+  "server": {
+    "name": "ceramic-design-system",
+    "version": "0.8.10-doctor.1"
+  },
+  "oldToolCount": 46,
+  "newToolCount": 48,
+  "existingToolsPreserved": true,
+  "preservedFiles": 534,
+  "guide": "passed",
+  "catalog": "passed",
+  "sourceReview": {
+    "verdict": "FAIL",
+    "score": 80
+  },
+  "repairs": {
+    "verdict": "PASS",
+    "score": 100,
+    "allClear": true
+  },
+  "unsupported": "BLOCKED",
+  "existingLibraryDoctor": "passed"
+}
