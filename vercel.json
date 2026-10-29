@@ -6,7 +6,7 @@
     "api/mcp.mjs": {
       "maxDuration": 180,
       "memory": 2048,
-      "includeFiles": "{node_modules/@sparticuz/chromium/bin/**,node_modules/@utopia-studio-design/design-system-cli/data/**,node_modules/@utopia-studio-design/design-system-cli/bin/**,node_modules/@utopia-studio-design/design-system-cli/package.json}"
+      "includeFiles": "{src/code-worker.mjs,node_modules/@sparticuz/chromium/bin/**,node_modules/@utopia-studio-design/design-system-cli/data/**,node_modules/@utopia-studio-design/design-system-cli/bin/**,node_modules/@utopia-studio-design/design-system-cli/package.json}"
     }
   },
   "rewrites": [{ "source": "/mcp", "destination": "/api/mcp" }, { "source": "/", "destination": "/api/health" }],

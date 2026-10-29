@@ -1,6 +1,7 @@
 node_modules/
 .ceramic/
 .ceramic-*.json
+!.ceramic-review.json
 .env
 .env.*
 !.env.example

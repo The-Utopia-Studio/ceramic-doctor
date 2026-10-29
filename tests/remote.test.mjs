@@ -67,8 +67,13 @@ test('HTTP MCP reviews with real Chromium, preserves private evidence across req
   try {
     await client.connect(new StreamableHTTPClientTransport(endpoint))
     const tools = await client.listTools()
-    assert.equal(tools.tools.length, 6)
-    assert.equal(tools.tools[1].inputSchema.properties.visual, undefined)
+    assert.equal(tools.tools.length, 8)
+    assert.equal(tools.tools.find(t => t.name === 'design_review').inputSchema.properties.visual, undefined)
+    const code = await client.callTool({ name: 'review_files', arguments: { files: [{ path: 'Card.tsx', content: 'export const Card=()=> <button />' }] } })
+    assert.equal(code.structuredContent.verdict, 'FAIL')
+    assert.equal(code.isError, false)
+    const repaired = await client.callTool({ name: 'verify_code_fixes', arguments: { previous: code.structuredContent, files: [{ path: 'Card.tsx', content: 'export const Card=()=> <button>Save</button>' }] } })
+    assert.equal(repaired.structuredContent.verification.allClear, true)
     assert.equal((await client.callTool({ name: 'doctor', arguments: {} })).structuredContent.ok, true)
     const result = await client.callTool({ name: 'design_review', arguments: { url: 'https://example.com', readySelector: 'h1' } }, undefined, { timeout: 60_000 })
     const before = result.structuredContent
