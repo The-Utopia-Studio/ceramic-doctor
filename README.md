@@ -1,8 +1,95 @@
 # Ceramic Doctor
 
-Evidence-backed design review for Ceramic and ordinary websites. Runs through a CLI, an MCP server, or the bundled agent skill. It combines the existing Ceramic Doctor with desktop/mobile browser QA, optional visual judgement, actionable findings and repeatable fix verification.
+Review UI code before committing, pushing to GitHub, or merging a PR. Ceramic Doctor provides an offline source checker, Git hooks, a reusable GitHub Action, remote/local MCP tools and an agent skill. Browser review remains available as a separate evidence layer.
 
 Ceramic Doctor is independently runnable. It does not require Rams or Rams credits.
+
+## Check code before commit, push and merge
+
+Install in the project you want to check:
+
+```sh
+npm install --save-dev github:The-Utopia-Studio/ceramic-doctor#v0.3.0
+npx ceramic-doctor check --staged
+npx ceramic-doctor check --base origin/main --head HEAD
+```
+
+No preview URL, browser download, API key, or model login is required for source checks. `check` without a range inspects the working tree plus untracked UI files. `--staged` snapshots and checks the exact index contents, including partially staged files. A commit range compares the merge base to the exact head commit. Findings outside changed lines and their relevant JSX/CSS context are excluded. Deletion-only hunks retain adjacent context, so removing a label or alt attribute is still checked. Syntax failures and incomplete coverage fail execution.
+
+Supported source: JSX/TSX, JS/TS containing JSX, and CSS. The engine checks static JSX accessibility with `eslint-plugin-jsx-a11y`, syntax, and CSS focus-outline risks. Optional Ceramic policy checks cover page-owned CSS/inline presentation and raw color use outside declared token/theme files. It never loads the target repository's ESLint config, imports submitted modules, or runs target npm scripts. This is not a visual-taste judge, a type checker or a replacement for the target's existing test/build jobs. Vue/Svelte/Swift/HTML/preprocessed CSS changes explicitly block unsupported coverage instead of receiving a pass.
+
+### GitHub PR check
+
+```sh
+npx ceramic-doctor init-checks
+```
+
+This creates `.github/workflows/ceramic-doctor.yml` without replacing an existing file. Commit the generated workflow. On PRs and pushes to `main`, the **Ceramic Doctor / code changes** job uses the same source engine, emits file/line annotations, adds a job summary, and uploads JSON/Markdown/SARIF reports as a seven-day artifact. It does not post PR comments or require write permissions to your source repository.
+
+The reusable Action can also be added to an existing workflow:
+
+```yaml
+permissions:
+  contents: read
+jobs:
+  code-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ github.event.pull_request.head.sha }}
+      - uses: The-Utopia-Studio/ceramic-doctor@v0.3.0
+        with:
+          base: ${{ github.event.pull_request.base.sha }}
+          head: ${{ github.event.pull_request.head.sha }}
+```
+
+Use this job under a `pull_request` trigger; the generated workflow also handles pushes and manual validation. Pin the Action to its release commit SHA if your repository requires immutable action references. The engine is installed in its own trusted Action directory with install scripts disabled, and PR code is read as data. CI reads `.ceramic-review.json` from the base commit, so a PR cannot silently disable its own checks by weakening the policy. New-branch pushes with an all-zero base inspect the full head tree. The Action runs locally on the GitHub runner and **does not upload your source to the hosted MCP**.
+
+Serious/critical findings fail by default. `fail-on` can set the failure threshold. A check with no relevant UI source is labelled `SKIP`; missing/oversized/unreadable/unsupported UI files yield `BLOCKED`, not a pass. To require the check before merging, select **Ceramic Doctor / code changes** in your repository's branch/ruleset settings. Installing a workflow alone does not change branch protections.
+
+### Local Git hooks (explicit opt-in)
+
+```sh
+npx ceramic-doctor install-hooks
+```
+
+This installs repository-local pre-commit (`check --staged`) and pre-push (exact outgoing commit ranges) hooks. It refuses to overwrite existing hooks or a custom `core.hooksPath`; integrate the command with Husky or your current hook manager in that case. Global Git configuration is never changed. Each developer installs hooks locally; the committed workflow supplies the shared PR check. The generated hook helper points at this installation, so reinstall the hooks if you move/remove the package. To uninstall, remove only the three Ceramic-owned files reported by the install command. Hooks are verified on macOS/Linux; they are not a security boundary against someone deliberately bypassing local Git hooks.
+
+### Policy and reports
+
+Optional `.ceramic-review.json`:
+
+```json
+{
+  "version": 1,
+  "semanticTokens": true,
+  "pagePatterns": ["src/pages/**"],
+  "tokenPatterns": ["**/themes/**", "**/tokens/**", "**/core.css"],
+  "ignore": []
+}
+```
+
+Generic projects leave `semanticTokens` false (the default). Semantic mode also recognizes Ceramic's Button, IconButton, Input, Textarea and NativeSelect wrappers. Other cross-file/custom framework wrappers may need manual review. Inline ESLint suppression comments do not disable this review engine; policy exclusions remain explicit and are reported.
+
+Reports include exact source hashes, Git head/base/index-tree scope, policy revision, file/line findings, remediation, coverage and a technical defect index. Default output: `.ceramic/code-reviews/<id>/report.json`, `report.md`, `report.sarif`. Use `--out <directory>`, `--json` or `--format github`. Exit codes: `0` no blocking finding / explicit skip, `1` findings exceed the threshold, `2` incomplete execution or invalid input. Report artifacts contain findings and source hashes, not full source files; treat them according to your repository's confidentiality.
+
+For programmatic or agent use:
+
+```sh
+ceramic-doctor review-files files.json --json
+ceramic-doctor verify-code report.json --files updated-whole-files.json --json
+```
+
+`files.json` is an array of `{ "path": "src/Card.tsx", "content": "...", "changedLines": [{ "start": 3, "end": 8 }] }`. Omit `changedLines` to inspect the whole file. Verification requires whole-file contents for all original files and the same policy. Moved lines alone never count as fixes; ambiguous sibling failures remain unverified. Whole-file verification may reveal issues outside an earlier diff, so “new” means newly observed, not proven newly introduced. Local limits: 100 source files, 256 KiB per file, 2 MiB total, 500 diagnostics per file and 2,000 per report; exceeding them blocks coverage.
+
+### Source review over MCP
+
+The same remote URL below now exposes **`review_files`** and **`verify_code_fixes`**. Your coding agent can submit the explicitly selected changed UI files, receive findings/score/fix proposals, edit locally, and revalidate. The server does not pull a local repository or require GitHub credentials. Submitted source is parsed in an isolated 256 MiB worker with a 15-second budget and is not persisted by the application.
+
+MCP payloads allow 20 files, 128 KiB per file and 500 KiB total (including a previous report for verification). Send only source authorized for review; split larger requests into explicit batches and keep coverage gaps visible. Hosted source and browser reviews share the anonymous quota; local CLI/GitHub Action checks have no hosted quota. The host AI may add clearly labelled judgement from the code, while deterministic source findings remain separate from model opinions and rendered evidence.
 
 ## Connect to the hosted MCP
 
@@ -30,13 +117,13 @@ codex mcp add ceramic-doctor --url https://ceramic-doctor.vercel.app/mcp
 
 Ask: “Use Ceramic Doctor to review https://utopia-design-system.vercel.app. Wait for `h1`, inspect desktop and mobile screenshots, explain the findings, then verify my fixes.” Substitute your public site and its actual readiness selector when reviewing your own work.
 
-The hosted server executes Doctor, Chromium and axe checks. Call `get_screenshot` and let your connected AI model judge visual hierarchy/readability/brand fit separately from measured defects. Hosted requests do not invoke the operator's personal Codex account. `visual` and project `qa` options belong to local execution only.
+For code changes, use `review_files` / `verify_code_fixes`. For URL review, the hosted server executes Doctor, Chromium and axe checks. Call `get_screenshot` and let your connected AI model judge visual hierarchy/readability/brand fit separately from measured defects. Hosted requests do not invoke the operator's personal Codex account. `visual` and project `qa` options belong to local execution only.
 
 Hosted tools have the same names below. `design_review` returns a complete **private `reviewId`**, including its random access capability. Supply that entire value to `get_review`, `get_screenshot`, and `verify_fixes`; it grants access for 24 hours, so keep it private. `list_reviews` accepts `reviewIds: [...]` and lists only those known reports, never other people's work. Reports and screenshots are stored in a private Blob store. Access expires after 24 hours; daily cleanup removes expired date buckets, with a storage retention bound of 72 hours when the scheduled job operates normally.
 
-Anonymous browser execution is bounded: one run per caller per minute, a shared 30 runs per hour, up to two scenarios × two viewports, six explicit actions per scenario, and a 100-second execution budget. These are storage-backed reservations across server instances. A limit or unavailable check returns an error/partial run, never a fabricated pass.
+Anonymous hosted reviews share a bounded quota: one run per caller per minute and 30 runs per hour across the service. Browser runs allow up to two scenarios × two viewports, six explicit actions per scenario, and a 100-second execution budget. Source calls use the separate worker/payload limits above. Quotas are storage-backed reservations across server instances. A limit or unavailable check returns an error/partial run, never a fabricated pass.
 
-Hosted review accepts public HTTP(S) targets on ports 80/443. Localhost, private/reserved addresses, WebSockets and non-GET network operations are blocked. Every resource and redirect is checked through a DNS-pinned network proxy; site features depending on blocked operations may be incomplete and require local QA. The hosted service cannot inspect your local source files or authenticated/private applications.
+Hosted URL review accepts public HTTP(S) targets on ports 80/443. Localhost, private/reserved addresses, WebSockets and non-GET network operations are blocked. Every resource and redirect is checked through a DNS-pinned network proxy; site features depending on blocked operations may be incomplete and require local QA. The hosted service cannot access your local filesystem or authenticated/private applications; source review checks only the file contents explicitly supplied by the client.
 
 The service is deployed on Vercel. For self-hosting, link a **private** Vercel Blob store (providing `BLOB_READ_WRITE_TOKEN`) and set a random `CRON_SECRET` for the scheduled cleanup endpoint. Keep those deployment credentials in your host environment. No client API key is needed.
 
@@ -45,7 +132,7 @@ The service is deployed on Vercel. For self-hosting, link a **private** Vercel B
 Local execution requires Node.js 22.17+. Distribution is GitHub; no npm publication is assumed.
 
 ```sh
-npm install -g github:The-Utopia-Studio/ceramic-doctor#v0.2.0
+npm install -g github:The-Utopia-Studio/ceramic-doctor#v0.3.0
 ceramic-doctor install-browser
 ceramic-doctor review http://localhost:4173 --ready main
 ```
@@ -63,7 +150,7 @@ node bin/ceramic-doctor.mjs review https://utopia-design-system.vercel.app --rea
 For a one-off invocation:
 
 ```sh
-npx --yes --package=github:The-Utopia-Studio/ceramic-doctor#v0.2.0 ceramic-doctor doctor
+npx --yes --package=github:The-Utopia-Studio/ceramic-doctor#v0.3.0 ceramic-doctor doctor
 ```
 
 Browser installation is one-time per Playwright version. On Linux, use `npx playwright install --with-deps chromium` from the cloned repository when system libraries are missing.
@@ -90,7 +177,7 @@ An npx configuration can run without a global CLI install. The initial GitHub de
   "mcpServers": {
     "ceramic-doctor": {
       "command": "npx",
-      "args": ["--yes", "--package=github:The-Utopia-Studio/ceramic-doctor#v0.2.0", "ceramic-doctor", "mcp", "--project", "/absolute/path/to/your-project"]
+      "args": ["--yes", "--package=github:The-Utopia-Studio/ceramic-doctor#v0.3.0", "ceramic-doctor", "mcp", "--project", "/absolute/path/to/your-project"]
     }
   }
 }
@@ -212,4 +299,4 @@ Tests exercise real Chromium defects, same-scope fix verification, unavailable c
 
 ## 한국어
 
-원격 MCP 주소 `https://ceramic-doctor.vercel.app/mcp`에 인증 없음으로 연결하면 로컬 설치 없이 공개 웹사이트를 검사할 수 있습니다. 기본 실행은 Doctor와 브라우저 접근성·모바일 넘침·런타임 오류를 검사합니다. `get_screenshot`으로 실제 이미지를 받아 연결한 AI가 디자인을 판단하고, 에이전트가 소스를 수정한 뒤 `verify_fixes`로 같은 조건을 재검증합니다. 반환된 전체 reviewId는 비공개 보고서 접근 권한이므로 공유하지 마세요. localhost·소스 검사·Codex CLI 시각 리뷰가 필요하면 로컬 실행을 사용하세요.
+GitHub 업로드·PR 머지 전에는 `check --staged` 또는 `check --base ... --head ...`로 변경 코드를 검사합니다. `init-checks`로 PR 체크를 추가하고 `install-hooks`로 로컬 커밋·푸시 검사를 선택 설치할 수 있습니다. 원격 MCP의 `review_files`·`verify_code_fixes`도 같은 소스 엔진을 사용하며 URL 없이 동작합니다. 원격 MCP 주소 `https://ceramic-doctor.vercel.app/mcp`는 그대로 유지됩니다. 별도로 공개 웹사이트도 검사할 수 있습니다. 기본 실행은 Doctor와 브라우저 접근성·모바일 넘침·런타임 오류를 검사합니다. `get_screenshot`으로 실제 이미지를 받아 연결한 AI가 디자인을 판단하고, 에이전트가 소스를 수정한 뒤 `verify_fixes`로 같은 조건을 재검증합니다. 반환된 전체 reviewId는 비공개 보고서 접근 권한이므로 공유하지 마세요. localhost 브라우저 검사나 Codex CLI 시각 리뷰가 필요하면 로컬 실행을 사용하세요.

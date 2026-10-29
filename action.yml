@@ -1,0 +1,49 @@
+name: Ceramic Doctor code review
+description: Inspect changed UI source before merge, with file annotations and downloadable evidence.
+inputs:
+  base:
+    description: Base commit SHA. PR workflows should use pull_request.base.sha.
+    required: true
+  head:
+    description: Exact head commit SHA to inspect.
+    required: true
+  fail-on:
+    description: Lowest blocking severity (critical, serious, moderate, minor).
+    default: serious
+outputs:
+  report-directory:
+    description: Directory containing JSON, Markdown and SARIF reports.
+    value: ${{ steps.review.outputs.directory }}
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: 24
+    - name: Install the trusted review engine
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        NPM_CONFIG_USERCONFIG: /dev/null
+      run: npm ci --ignore-scripts --no-audit --no-fund
+    - name: Review exact changed source
+      id: review
+      shell: bash
+      env:
+        CD_ACTION_PATH: ${{ github.action_path }}
+        CD_PROJECT: ${{ github.workspace }}
+        CD_BASE: ${{ inputs.base }}
+        CD_HEAD: ${{ inputs.head }}
+        CD_THRESHOLD: ${{ inputs.fail-on }}
+      run: |
+        report_directory="$RUNNER_TEMP/ceramic-doctor-$GITHUB_RUN_ID-$GITHUB_RUN_ATTEMPT"
+        echo "directory=$report_directory" >> "$GITHUB_OUTPUT"
+        node "$CD_ACTION_PATH/bin/ceramic-doctor.mjs" check --project "$CD_PROJECT" --base "$CD_BASE" --head "$CD_HEAD" --fail-on "$CD_THRESHOLD" --format github --out "$report_directory"
+    - name: Upload review evidence
+      if: always() && steps.review.outputs.directory != ''
+      uses: actions/upload-artifact@v4
+      with:
+        name: ceramic-doctor-${{ github.run_id }}-${{ github.run_attempt }}
+        path: ${{ steps.review.outputs.directory }}
+        if-no-files-found: error
+        retention-days: 7

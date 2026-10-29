@@ -1,0 +1,29 @@
+name: Ceramic Doctor code review
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Base commit to compare
+        required: true
+      head:
+        description: Head commit to inspect
+        required: true
+permissions:
+  contents: read
+jobs:
+  code-review:
+    name: Ceramic Doctor / code changes
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+          ref: ${{ inputs.head || github.event.pull_request.head.sha || github.sha }}
+      - uses: The-Utopia-Studio/ceramic-doctor@v0.3.0
+        with:
+          base: ${{ inputs.base || github.event.pull_request.base.sha || github.event.before }}
+          head: ${{ inputs.head || github.event.pull_request.head.sha || github.sha }}
