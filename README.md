@@ -191,6 +191,8 @@ codex mcp add ceramic-doctor -- ceramic-doctor mcp --project /absolute/path/to/y
 
 | MCP tool | Behavior |
 | --- | --- |
+| `review_files` | Inspect submitted UI source and return file/line findings, score and coverage |
+| `verify_code_fixes` | Recheck updated whole files against the original source report |
 | `doctor` | Library contracts; include `url` to run Design Review |
 | `design_review` | Render desktop/mobile, run checks, preserve evidence, propose fixes |
 | `verify_fixes` | Repeat the saved scope and classify fixed/present/new/unverified findings |
@@ -296,6 +298,8 @@ npm pack --dry-run
 ```
 
 Tests exercise real Chromium defects, same-scope fix verification, unavailable coverage, stdio/HTTP MCP calls and inline images with the official SDK, private report capabilities, atomic anonymous reservations, public-network restrictions, model-output validation and skill installation. Codex calls are opt-in and excluded from CI.
+
+Source tests also exercise exact staged snapshots, commit ranges, deletion context, real commit/push hooks, trusted policy revisions, annotations, SARIF, unsupported coverage and fix verification. The v0.3.0 GitHub Action was validated using manual runs of the same workflow on an isolated validation branch: [inaccessible source fails with annotations and reports](https://github.com/The-Utopia-Studio/ceramic-doctor/actions/runs/40805145196), then [the repaired head passes](https://github.com/The-Utopia-Studio/ceramic-doctor/actions/runs/40805254345). The hosted MCP was separately verified with source review and whole-file repair verification.
 
 ## 한국어
 
