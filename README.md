@@ -9,7 +9,7 @@ Ceramic Doctor is independently runnable. It does not require Rams or Rams credi
 Install in the project you want to check:
 
 ```sh
-npm install --save-dev github:The-Utopia-Studio/ceramic-doctor#v0.3.0
+npm install --save-dev github:The-Utopia-Studio/ceramic-doctor#v0.3.1
 npx ceramic-doctor check --staged
 npx ceramic-doctor check --base origin/main --head HEAD
 ```
@@ -40,7 +40,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: ${{ github.event.pull_request.head.sha }}
-      - uses: The-Utopia-Studio/ceramic-doctor@v0.3.0
+      - uses: The-Utopia-Studio/ceramic-doctor@v0.3.1
         with:
           base: ${{ github.event.pull_request.base.sha }}
           head: ${{ github.event.pull_request.head.sha }}
@@ -91,6 +91,10 @@ The same remote URL below now exposes **`review_files`** and **`verify_code_fixe
 
 MCP payloads allow 20 files, 128 KiB per file and 500 KiB total (including a previous report for verification). Send only source authorized for review; split larger requests into explicit batches and keep coverage gaps visible. Hosted source and browser reviews share the anonymous quota; local CLI/GitHub Action checks have no hosted quota. The host AI may add clearly labelled judgement from the code, while deterministic source findings remain separate from model opinions and rendered evidence.
 
+## Integrate with an existing MCP
+
+The portable `@utopia-studio-design/ceramic-doctor-source` archive on the v0.3.1 GitHub release exports `codeToolDefinitions`, `validateCodeToolInput` and `runCodeTool`. It packages the same four engine modules with per-file SHA-256 hashes, without browser, Blob, MCP SDK or Ceramic CLI dependencies. Existing MCP servers can register `review_files` / `verify_code_fixes` and run the bounded worker in their own process. Submitted source does not need to be forwarded to the hosted Doctor service. Build the archive with `npm run pack:source`.
+
 ## Connect to the hosted MCP
 
 **URL: `https://ceramic-doctor.vercel.app/mcp`**
@@ -132,7 +136,7 @@ The service is deployed on Vercel. For self-hosting, link a **private** Vercel B
 Local execution requires Node.js 22.17+. Distribution is GitHub; no npm publication is assumed.
 
 ```sh
-npm install -g github:The-Utopia-Studio/ceramic-doctor#v0.3.0
+npm install -g github:The-Utopia-Studio/ceramic-doctor#v0.3.1
 ceramic-doctor install-browser
 ceramic-doctor review http://localhost:4173 --ready main
 ```
@@ -150,7 +154,7 @@ node bin/ceramic-doctor.mjs review https://utopia-design-system.vercel.app --rea
 For a one-off invocation:
 
 ```sh
-npx --yes --package=github:The-Utopia-Studio/ceramic-doctor#v0.3.0 ceramic-doctor doctor
+npx --yes --package=github:The-Utopia-Studio/ceramic-doctor#v0.3.1 ceramic-doctor doctor
 ```
 
 Browser installation is one-time per Playwright version. On Linux, use `npx playwright install --with-deps chromium` from the cloned repository when system libraries are missing.
@@ -177,7 +181,7 @@ An npx configuration can run without a global CLI install. The initial GitHub de
   "mcpServers": {
     "ceramic-doctor": {
       "command": "npx",
-      "args": ["--yes", "--package=github:The-Utopia-Studio/ceramic-doctor#v0.3.0", "ceramic-doctor", "mcp", "--project", "/absolute/path/to/your-project"]
+      "args": ["--yes", "--package=github:The-Utopia-Studio/ceramic-doctor#v0.3.1", "ceramic-doctor", "mcp", "--project", "/absolute/path/to/your-project"]
     }
   }
 }

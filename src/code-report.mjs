@@ -9,7 +9,7 @@ export function codeMarkdown(report) {
 
 export function codeSarif(report) {
   const rules = [...new Map(report.findings.map(f => [f.rule, { id: f.rule, shortDescription: { text: f.rule }, ...(f.helpUrl ? { helpUri: f.helpUrl } : {}) }])).values()]
-  return { version: '2.1.0', $schema: 'https://json.schemastore.org/sarif-2.1.0.json', runs: [{ tool: { driver: { name: 'Ceramic Doctor', version: '0.3.0', informationUri: 'https://github.com/The-Utopia-Studio/ceramic-doctor', rules } },
+  return { version: '2.1.0', $schema: 'https://json.schemastore.org/sarif-2.1.0.json', runs: [{ tool: { driver: { name: 'Ceramic Doctor', version: '0.3.1', informationUri: 'https://github.com/The-Utopia-Studio/ceramic-doctor', rules } },
     invocations: [{ executionSuccessful: report.execution === 'completed' }], results: report.findings.map(f => ({ ruleId: f.rule, level: ['critical', 'serious'].includes(f.severity) ? 'error' : 'warning', message: { text: `${f.title}\n${f.fix}` },
       partialFingerprints: { 'ceramic/v1': f.id }, locations: [{ physicalLocation: { artifactLocation: { uri: f.file.split('/').map(encodeURIComponent).join('/'), uriBaseId: '%SRCROOT%' }, region: { startLine: f.line, startColumn: f.column ?? 1 } } }] })) }] }
 }

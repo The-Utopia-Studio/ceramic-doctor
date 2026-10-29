@@ -29,7 +29,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
           ref: \${{ inputs.head || github.event.pull_request.head.sha || github.sha }}
-      - uses: The-Utopia-Studio/ceramic-doctor@v0.3.0
+      - uses: The-Utopia-Studio/ceramic-doctor@v0.3.1
         with:
           base: \${{ inputs.base || github.event.pull_request.base.sha || github.event.before }}
           head: \${{ inputs.head || github.event.pull_request.head.sha || github.sha }}
