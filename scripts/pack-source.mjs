@@ -9,7 +9,7 @@ import { execFileSync } from 'node:child_process'
 const root = fileURLToPath(new URL('../', import.meta.url))
 const pkg = JSON.parse(await readFile(join(root, 'package.json'), 'utf8'))
 const destination = join(root, '.ceramic/source-package')
-const modules = ['code-review.mjs', 'code-tools.mjs', 'code-worker.mjs', 'contracts.mjs']
+const modules = ['code-review.mjs', 'input-label-rule.mjs', 'code-tools.mjs', 'code-worker.mjs', 'contracts.mjs']
 const dependencies = ['@typescript-eslint/parser', 'eslint', 'eslint-plugin-jsx-a11y', 'picomatch', 'postcss', 'typescript']
 await mkdir(join(destination, 'src'), { recursive: true })
 const hashes = {}

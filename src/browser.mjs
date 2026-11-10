@@ -16,6 +16,8 @@ export async function observePage(page) {
       direction: getComputedStyle(document.documentElement).direction,
       theme: document.documentElement.dataset.theme || document.body.dataset.theme || null,
       colorMode: document.documentElement.dataset.colorMode || document.body.dataset.colorMode || null,
+      unnamedInputs: [...document.querySelectorAll('input,select,textarea')].filter(element => shown(element) && !['hidden','submit','reset','button','image'].includes(element.type) && !element.getAttribute('aria-label')?.trim() && !element.getAttribute('title')?.trim() && ![...(element.labels ?? [])].some(label => label.textContent?.trim()) && !(element.getAttribute('aria-labelledby')?.trim().split(/\s+/).every(id => document.getElementById(id)?.textContent?.trim()))).slice(0,50).map(element => element.id ? `#${CSS.escape(element.id)}` : element.tagName.toLowerCase()),
+      activeMotion: document.getAnimations().filter(animation => { const target = animation.effect?.target, timing = animation.effect?.getComputedTiming(); return target instanceof Element && shown(target) && animation.playState === 'running' && (Number(timing?.activeDuration) > 10 || timing?.activeDuration === Infinity) }).slice(0,100).map(animation => ({ duration: String(animation.effect.getComputedTiming().activeDuration) })),
       reducedMotion: matchMedia('(prefers-reduced-motion: reduce)').matches,
       text: document.body.innerText.slice(0, 12000),
       documentWidth: document.documentElement.scrollWidth,
@@ -70,6 +72,11 @@ export async function inspectScenario(browser, input, scenario, viewport, direct
       await perform(page, action)
       coverage.actionsCompleted++
     }
+    if (input.expectedOrigin && new URL(page.url()).origin !== input.expectedOrigin) throw new Error('Preview redirected away from the authorized origin.')
+    if (input.expectedCommit) {
+      const marker = response?.headers()['x-ceramic-commit'] ?? await page.evaluate(() => document.querySelector('meta[name="ceramic-commit"]')?.getAttribute('content'))
+      if (marker !== input.expectedCommit) throw new Error('Rendered preview does not attest the exact reviewed commit.')
+    }
     // Assertion steps/readiness are the readiness contract; no fixed sleep or network-idle assumption.
     const observation = await observePage(page)
     coverage.actual = { url: page.url(), language: observation.language, direction: observation.direction, theme: observation.theme, colorMode: observation.colorMode, reducedMotion: observation.reducedMotion }
@@ -86,6 +93,14 @@ export async function inspectScenario(browser, input, scenario, viewport, direct
           fix: `Fix ${violation.id} in the owning component or semantic token. ${violation.description} See ${violation.helpUrl}` }))
       }
     }
+    // Measure motion before the screenshot disables animations. Computed styles
+    // include cross-file CSS and JS-created animations under the requested media.
+    coverage.checks.push('reduced-motion', 'input-label')
+    for (const selector of observation.unnamedInputs ?? []) findings.push(finding({ rule: 'input-label', category: 'accessibility', severity: 'serious', title: 'Rendered form control has no programmatic label', selector, scenario: scenario.id,
+      evidence, fix: 'Associate visible label text with the control or supply a meaningful accessible name. Placeholder text alone is not a label.' }))
+
+    if (observation.reducedMotion && observation.activeMotion?.length) findings.push(finding({ rule: 'reduced-motion', category: 'motion', severity: 'serious', title: 'Animation remains active with reduced motion requested', scenario: scenario.id,
+      evidence: { ...evidence, detail: `${observation.activeMotion.length} visible animations exceed 10ms under prefers-reduced-motion: reduce.` }, fix: 'Disable nonessential motion for reduced-motion users in the owning component or stylesheet; validate essential motion manually.' }))
     coverage.checks.push('document-overflow', 'broken-image', 'runtime-error', 'http-status')
     if (observation.documentWidth > observation.viewportWidth + 1) findings.push(finding({ rule: 'document-overflow', category: 'responsive', severity: 'serious', title: 'Document overflows horizontally', selector: 'html', scenario: scenario.id,
       evidence: { ...evidence, detail: `${observation.documentWidth}px content in ${observation.viewportWidth}px viewport.` }, fix: 'Fix the owning layout contract. Contain wide tables/media in their intended scroll surface; preserve access to all content.' }))
