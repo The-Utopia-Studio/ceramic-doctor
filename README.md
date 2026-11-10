@@ -103,7 +103,7 @@ The portable `@utopia-studio-design/ceramic-doctor-source` archive on the v0.3.1
 
 ## Managed GitHub App
 
-A separate persistent Node service now implements signed GitHub webhook intake, durable jobs, installation-scoped source review, check annotations, a maintained PR summary and operator usage/history. See [the App setup and acceptance guide](docs/github-app.md). App registration, secrets, hosting and a selected-repository installation are required before live activation; this is separate from the stateless hosted MCP below.
+A separate persistent Node service now implements signed GitHub webhook intake, durable jobs, installation-scoped source and authorized preview review, check annotations, a maintained PR summary and operator usage/history. See [the App setup and acceptance guide](docs/github-app.md). App registration, secrets, hosting and a selected-repository installation are required before live activation. UI approval requires commit-matched rendered coverage at desktop and mobile widths; missing coverage is blocked. This is separate from the stateless hosted MCP below.
 
 ## Connect to the hosted MCP
 
