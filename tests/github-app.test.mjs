@@ -16,6 +16,7 @@ const job = { installation: 11, repository: 22, fullName: 'owner/repo', kind: 'p
 const payload = { installation: { id: 11 }, repository: { id: 22, full_name: 'owner/repo', default_branch: 'trunk' }, action: 'opened', pull_request: { number: 3, head: { sha: head }, base: { sha: base, repo: { id: 22 } } } }
 const secret = 'x'.repeat(32)
 const sign = body => 'sha256=' + createHmac('sha256', secret).update(body).digest('hex')
+const successfulRender = async () => ({ execution:'completed',verdict:'PASS',score:{value:100},findings:[],coverage:[{path:'/',viewport:'mobile',status:'completed'}] })
 const pr = { state: 'open', head: { sha: head }, base: { sha: base }, changed_files: 1 }
 function fakeApi({ source = 'export const Card=()=> <img src="x" />', stale = false, error, empty = false, filename = 'Card.tsx' } = {}) {
   const calls = []; let comment = null, check = { id: 50, output: { annotations_count: 0 } }
@@ -41,7 +42,7 @@ function fakeApi({ source = 'export const Card=()=> <img src="x" />', stale = fa
 async function execute(options = {}) {
   const store = new ReviewStore(':memory:'); const mock = fakeApi(options)
   store.enqueue(job,'delivery'); const claimed = store.claim()
-  await executeJob(claimed, { store, github: mock.github, appId: 99, appSlug: 'doctor' })
+  await executeJob(claimed, { store, github: mock.github, appId: 99, appSlug: 'doctor', render: successfulRender })
   return { store, claimed, ...mock }
 }
 
@@ -66,7 +67,7 @@ test('JWT and installation tokens are short-lived and scoped to one repository',
     calls.push({url,...options}); return Response.json(url.includes('access_tokens')?{token:'installation-test-token'}:{id:22})
   }})
   await github.installation(job)
-  assert.deepEqual(JSON.parse(calls[0].body),{repository_ids:[22],permissions:{contents:'read',checks:'write',pull_requests:'write'}})
+  assert.deepEqual(JSON.parse(calls[0].body),{repository_ids:[22],permissions:{contents:'read',deployments:'read',checks:'write',pull_requests:'write'}})
   assert.equal(calls[1].headers.Authorization,'Bearer installation-test-token')
   assert.ok(calls.every(c=>c.url.startsWith('https://api.github.com/')&&c.redirect==='error'))
 })
@@ -109,6 +110,11 @@ test('HTTP webhook intake persists authorized jobs, rejects spoofing and handles
     assert.equal((await send('pull_request',payload)).status,202)
     assert.equal((await (await send('pull_request',payload)).json()).duplicate,true)
     assert.equal(store.history(11).length,1)
+    const deployed={installation:{id:11},repository:{id:22},deployment:{sha:head},deployment_status:{state:'success'}}
+    await send('deployment_status',deployed)
+    assert.equal(store.history(11).length,2)
+    await send('deployment_status',deployed)
+    assert.equal(store.history(11).length,2,'Replayed deployment cannot spawn new jobs')
     assert.equal((await fetch(url+'/api/installations/11/reviews')).status,401)
     assert.equal((await fetch(url+'/api/installations/12/reviews',{headers:{authorization:`Bearer ${secret}`}})).status,404)
     assert.equal((await send('installation',{installation:{id:11},action:'deleted'})).status,202)
@@ -129,7 +135,7 @@ test('real review engine publishes a failure and idempotent PR summary without e
     assert.equal(publication.body.output.annotations[0].path,'Card.tsx')
     assert.ok(result.calls.some(c=>c.path==='/issues/3/comments'&&c.method==='POST'))
     result.store.enqueue(job,'rerequest',{rerun:true})
-    await executeJob(result.store.claim(),{store:result.store,github:result.github,appId:99,appSlug:'doctor'})
+    await executeJob(result.store.claim(),{store:result.store,github:result.github,appId:99,appSlug:'doctor',render:successfulRender})
     assert.equal(result.calls.filter(c=>c.path==='/issues/3/comments'&&c.method==='POST').length,1)
     assert.ok(result.calls.some(c=>c.path==='/issues/comments/60'&&c.method==='PATCH'))
   }finally{result.store.close()}

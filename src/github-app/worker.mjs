@@ -1,3 +1,5 @@
+import { reviewRenderedJob } from './render.mjs'
+import { technicalScore } from '../contracts.mjs'
 import { runCodeTool } from '../code-tools.mjs'
 import { codeMarkdown } from '../code-report.mjs'
 import { currentScope, collectSource } from './github.mjs'
@@ -6,7 +8,7 @@ const name = 'Ceramic Doctor / managed review'
 const quiet = value => String(value).replace(/@/g, '@\u200b')
 const bodyFor = report => quiet(codeMarkdown(report)).slice(0, 55_000)
 const marker = '<!-- ceramic-doctor:summary:v1 -->'
-export async function executeJob(job, { store, github, appId, appSlug, review = input => runCodeTool('review_files', input), now = Date.now }) {
+export async function executeJob(job, { store, github, appId, appSlug, review = input => runCodeTool('review_files', input), now = Date.now, previewConfigurations = [], render = reviewRenderedJob }) {
   const started = now(); let api, checkId = job.check_id
   const active = () => store.active(job)
   const update = body => checkId && api.call(`/check-runs/${checkId}`, { method: 'PATCH', body })
@@ -21,7 +23,7 @@ export async function executeJob(job, { store, github, appId, appSlug, review = 
       checkId = checks.check_runs?.find(check => check.external_id === job.id && check.app?.id === appId)?.id
     }
     if (!checkId && scope.current) {
-      const check = await api.call('/check-runs', { method: 'POST', body: { name, head_sha: job.head, external_id: job.id, status: 'in_progress', started_at: new Date().toISOString(), output: { title: 'Reviewing changed UI source', summary: 'Source is parsed as data in a bounded worker. No target code is executed.' } } })
+      const check = await api.call('/check-runs', { method: 'POST', body: { name, head_sha: job.head, external_id: job.id, status: 'in_progress', started_at: new Date().toISOString(), output: { title: 'Reviewing changed UI source', summary: 'Source is parsed as data in a bounded worker. Source is never executed. Authorized commit previews are checked separately in isolated Chromium.' } } })
       checkId = check.id
     }
     if (checkId) store.check(job, checkId)
@@ -35,6 +37,16 @@ export async function executeJob(job, { store, github, appId, appSlug, review = 
     }
     const source = await collectSource(job, api, scope.pr)
     const report = await review({ files: source.files, policy: source.policy })
+    report.sourceResult = { execution: report.execution, verdict: report.verdict, score: report.score }
+    if (report.coverage.some(cell => cell.relevant || cell.status === 'blocked')) {
+      report.rendered = await render(job, api, previewConfigurations)
+      const allFindings = [...report.findings, ...report.rendered.findings]
+      const complete = report.execution === 'completed' && report.rendered.execution === 'completed'
+      report.execution = complete ? 'completed' : 'partial'
+      report.score = technicalScore(allFindings, complete)
+      report.verdict = allFindings.some(f => ['critical','serious'].includes(f.severity)) ? 'FAIL' : !complete ? 'BLOCKED' : allFindings.length ? 'PASS WITH RISKS' : 'PASS'
+      report.limits.push('Managed result combines source checks with the explicitly configured rendered routes. A source-only score never approves rendered UI.')
+    }
     report.context = { installation: job.installation, repository: job.repository, base: source.base, head: job.head, policyRevision: source.base }
     if (!active() || !(await currentScope(job, api)).current) {
       await complete('cancelled', 'The source head or policy base changed while this review was running.')
@@ -69,7 +81,7 @@ export async function executeJob(job, { store, github, appId, appSlug, review = 
     await update({ status: 'completed', conclusion, completed_at: new Date().toISOString(), output: { title: `Ceramic Doctor — ${report.verdict}`, summary, ...(previous.output?.annotations_count ? {} : { annotations }) } })
     store.finish(job, 'completed', { report, durationMs: now() - started })
   } catch (error) {
-    const transient = error.status === 429 || error.status >= 500 || error.status === 403 && error.retryAfter || ['TypeError', 'TimeoutError', 'AbortError'].includes(error.name)
+    const transient = error.status === 429 || error.status >= 500 || error.status === 403 && error.retryAfter || ['TypeError', 'TimeoutError', 'AbortError', 'PreviewPendingError'].includes(error.name)
     const message = error.status ? `GitHub API ${error.status}` : String(error.message).slice(0,300)
     if (transient && job.attempts < 3 && active()) {
       store.retry(job, message, error.retryAfter || 30_000 * 2 ** (job.attempts - 1), now() - started)

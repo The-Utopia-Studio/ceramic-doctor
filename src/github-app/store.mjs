@@ -75,6 +75,18 @@ export class ReviewStore {
     const row = this.db.prepare('SELECT * FROM jobs WHERE id=? AND installation=? AND repository=?').get(id, installation, repository)
     return row ? { ...JSON.parse(row.payload), id: row.id } : null
   }
+  jobsForHead(installation, repository, head) {
+    if (!Number.isSafeInteger(repository) || typeof head !== 'string' || !/^[a-f0-9]{40}$/.test(head)) return []
+    const rows = this.db.prepare('SELECT id,payload,scope FROM jobs WHERE installation=? AND repository=? ORDER BY created DESC, rowid DESC LIMIT 100').all(installation,repository)
+    const seen = new Set(), jobs = []
+    for (const row of rows) {
+      if (seen.has(row.scope)) continue
+      seen.add(row.scope)
+      const payload = JSON.parse(row.payload)
+      if (payload.head === head) jobs.push({ ...payload, id:row.id })
+    }
+    return jobs
+  }
   history(installation) {
     return this.db.prepare('SELECT id,repository,scope,state,created,updated,attempts,check_id,duration_ms,error,report FROM jobs WHERE installation=? ORDER BY created DESC LIMIT 100').all(installation)
       .map(row => ({ ...row, report: row.report ? JSON.parse(row.report) : null }))

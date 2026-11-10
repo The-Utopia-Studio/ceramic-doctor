@@ -32,7 +32,7 @@ export function createGithub({ appId, privateKey, fetchImpl = fetch, signal }) {
   return {
     async installation(job) {
       const auth = await request(`/app/installations/${job.installation}/access_tokens`, { token: appJwt(appId, privateKey), method: 'POST', body: {
-        repository_ids: [job.repository], permissions: { contents: 'read', checks: 'write', pull_requests: 'write' },
+        repository_ids: [job.repository], permissions: { contents: 'read', deployments: 'read', checks: 'write', pull_requests: 'write' },
       } })
       const prefix = `/repos/${job.fullName.split('/').map(encode).join('/')}`
       const call = (path, options = {}) => request(prefix + path, { ...options, token: auth.token })

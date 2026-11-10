@@ -1,3 +1,4 @@
+import { inputLabelRule } from './input-label-rule.mjs'
 import { Linter } from 'eslint'
 import parser from '@typescript-eslint/parser'
 import a11y from 'eslint-plugin-jsx-a11y'
@@ -63,7 +64,7 @@ function matches(path, patterns) { return patterns.some(pattern => picomatch(pat
 function selected(file, line, endLine = line) { return file.changedLines === undefined || file.changedLines.some(r => r.start <= endLine && r.end >= line) }
 
 function inspectJs(file, policy) {
-  const rules = { ...jsxRules }
+  const rules = { ...jsxRules, 'ceramic/input-label': 'error' }
   let jsxElements = 0
   const surfaces = []
   const surfaceRule = { meta: { schema: [] }, create: () => ({ JSXOpeningElement() { jsxElements++ }, JSXElement(node) { surfaces.push({ start: node.openingElement.loc.start, openingEnd: node.openingElement.loc.end, end: node.loc.end }) } }) }
@@ -71,8 +72,8 @@ function inspectJs(file, policy) {
   if (policy.semanticTokens && matches(file.path, policy.pagePatterns)) rules['ceramic/page-style-ownership'] = 'error'
   const messages = new Linter({ configType: 'flat' }).verify(file.content, [{ files: ['**/*.{js,jsx,ts,tsx,mjs,cjs}'], languageOptions: {
     parser, ecmaVersion: 'latest', sourceType: 'module', parserOptions: { ecmaFeatures: { jsx: true }, project: false },
-  }, plugins: { 'jsx-a11y': a11y, ceramic: { rules: { ...ceramicRules, 'jsx-surface': surfaceRule } } }, rules,
-    ...(policy.semanticTokens ? { settings: { 'jsx-a11y': { components: { Button: 'button', IconButton: 'button', Input: 'input', Textarea: 'textarea', NativeSelect: 'select' } } } } : {}),
+  }, plugins: { 'jsx-a11y': a11y, ceramic: { rules: { ...ceramicRules, 'input-label': inputLabelRule, 'jsx-surface': surfaceRule } } }, rules,
+    ...(policy.semanticTokens ? { settings: { ceramicControls: ['Input', 'Textarea', 'NativeSelect'], 'jsx-a11y': { components: { Button: 'button', IconButton: 'button', Input: 'input', Textarea: 'textarea', NativeSelect: 'select' } } } } : {}),
   }], { filename: `review${extname(file.path).toLowerCase()}`, allowInlineConfig: false })
   const childSensitive = new Set(['jsx-a11y/control-has-associated-label', 'jsx-a11y/anchor-has-content', 'jsx-a11y/heading-has-content', 'jsx-a11y/label-has-associated-control', 'jsx-a11y/media-has-caption'])
   const contextualEnd = message => {
@@ -89,7 +90,7 @@ function inspectJs(file, policy) {
 }
 
 function inspectCss(file, policy) {
-  const rules = ['syntax', 'css/focus-outline'], messages = []
+  const rules = ['syntax', 'css/focus-outline', 'css/reduced-motion'], messages = []
   try {
     const tree = postcss.parse(file.content, { from: file.path })
     tree.walkRules(rule => {
@@ -98,6 +99,26 @@ function inspectCss(file, policy) {
       const hidden = declarations.find(d => d.prop === 'outline' && /^(none|0(?:px)?)\s*(?:!important)?$/i.test(d.value))
       if (hidden && !declarations.some(d => /^(box-shadow|border|outline|background-color)$/.test(d.prop) && d !== hidden && !/^(none|0|transparent)$/i.test(d.value))) messages.push({ rule: 'css/focus-outline', severity: 'moderate', line: hidden.source.start.line, column: hidden.source.start.column, endLine: rule.source.end.line,
         message: 'Focus outline is removed without a replacement in this rule. Confirm the computed focus indicator in a browser.', fix: 'Provide a visible focus indicator through the owning component or shared token; inspect inherited states before changing styles.' })
+    })
+    tree.walkDecls(/^(animation|animation-name)$/, declaration => {
+      if (/^(none|initial|unset|inherit)$/i.test(declaration.value.trim())) return
+      let parent = declaration.parent, guarded = false
+      while (parent) {
+        if (parent.type === 'atrule' && parent.name === 'media' && /prefers-reduced-motion\s*:\s*no-preference/.test(parent.params) && !/\b(?:not|or)\b|,/.test(parent.params)) guarded = true
+        parent = parent.parent
+      }
+      if (guarded) return
+      const selector = declaration.parent.selector
+      let override = false
+      tree.walkAtRules('media', media => {
+        if (!/prefers-reduced-motion\s*:\s*reduce\b/.test(media.params) || /\b(?:not|or)\b|,/.test(media.params)) return
+        media.walkRules(rule => {
+          if (rule.selector !== selector) return
+          rule.walkDecls(/^(animation|animation-name)$/, d => { if (/^none\b/.test(d.value) && (d.important && !declaration.important || Boolean(d.important) === Boolean(declaration.important) && d.source.start.offset > declaration.source.start.offset)) override = true })
+        })
+      })
+      if (!override) messages.push({ rule: 'css/reduced-motion', severity: 'moderate', line: declaration.source.start.line, column: declaration.source.start.column, endLine: declaration.source.end.line,
+        message: 'Animation has no matching reduced-motion guard or disabling override in this file. Verify the reduced-motion rendering; cross-file cascade is not inferred.', fix: 'Enable nonessential animation only under prefers-reduced-motion: no-preference, or disable it for reduce in the owning stylesheet.' })
     })
     if (policy.semanticTokens && !matches(file.path, policy.tokenPatterns)) {
       rules.push('ceramic/raw-color')
@@ -126,7 +147,7 @@ export function reviewFiles(input) {
       const key = `${message.rule}:${message.message}`
       const occurrence = occurrences.get(key) ?? 0; occurrences.set(key, occurrence + 1)
       if (!message.fatal && !selected(file, message.line, message.endLine)) continue
-      findings.push({ ...message, id: hash([file.path, message.rule, message.message, occurrence]), file: file.path, category: message.rule.startsWith('ceramic/') ? 'semantic-contract' : message.rule === 'syntax' ? 'syntax' : 'accessibility', source: 'automated', title: message.message })
+      findings.push({ ...message, id: hash([file.path, message.rule, message.message, occurrence]), file: file.path, category: message.rule.startsWith('ceramic/') && message.rule !== 'ceramic/input-label' ? 'semantic-contract' : message.rule === 'syntax' ? 'syntax' : 'accessibility', source: 'automated', title: message.message })
     }
   }
   const complete = coverage.every(c => c.status !== 'blocked'), active = coverage.some(c => c.status === 'completed' && c.relevant)

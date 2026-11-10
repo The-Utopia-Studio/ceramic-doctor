@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url'
 import { verifySignature, fingerprint, reviewEvent } from './events.mjs'
 import { ReviewStore } from './store.mjs'
 import { createGithub } from './github.mjs'
+import { previewConfiguration } from './render.mjs'
 import { executeJob } from './worker.mjs'
 
 function authorized(value, token) {
@@ -51,6 +52,10 @@ export function createAppHandler({ store, webhookSecret, operatorToken, allowedI
         })
         return json(res, 202, { accepted: true })
       }
+      if (event === 'deployment_status' && payload.deployment_status?.state === 'success') {
+        const jobs = store.jobsForHead(installation, payload.repository?.id, payload.deployment?.sha)
+        return json(res, 202, { jobs: jobs.map(job => store.enqueue(job, `${digest}:${job.scope}`, { rerun: true })) })
+      }
       if (event === 'check_run' && payload.action === 'rerequested') {
         if (payload.check_run?.app?.id !== appId) return json(res, 202, { ignored: true })
         const original = store.find(payload.check_run.external_id, installation, payload.repository?.id)
@@ -68,6 +73,7 @@ export async function startApp(env = process.env) {
   const allowedInstallations = new Set((env.GITHUB_APP_ALLOWED_INSTALLATIONS ?? '').split(',').map(Number).filter(n => Number.isSafeInteger(n) && n > 0))
   const monthlyLimit = Number(env.CERAMIC_DOCTOR_MONTHLY_REVIEWS ?? 500)
   if (!Number.isSafeInteger(appId) || appId <= 0 || !/^[a-z0-9-]+$/.test(appSlug ?? '') || !env.GITHUB_APP_PRIVATE_KEY_FILE || webhookSecret?.length < 32 || !webhookSecret || operatorToken?.length < 32 || !operatorToken || !allowedInstallations.size || !Number.isSafeInteger(monthlyLimit) || monthlyLimit < 1) throw new Error('Configure App identity, private-key file, strong webhook/operator secrets, allowed installations and a positive monthly review limit.')
+  const previewConfigurations = previewConfiguration(env.CERAMIC_DOCTOR_PREVIEWS ?? '[]')
   const privateKey = await readFile(env.GITHUB_APP_PRIVATE_KEY_FILE, 'utf8')
   const dbPath = resolve(env.CERAMIC_DOCTOR_DATABASE ?? '.ceramic/github-app/reviews.sqlite')
   await mkdir(dirname(dbPath), { recursive: true, mode: 0o700 })
@@ -81,7 +87,7 @@ export async function startApp(env = process.env) {
     try {
       store.cleanup()
       const job = store.claim()
-      if (job) await executeJob(job, { store, appId, appSlug, github: createGithub({ appId, privateKey, signal: AbortSignal.timeout(120_000) }) })
+      if (job) await executeJob(job, { store, appId, appSlug, previewConfigurations, github: createGithub({ appId, privateKey, signal: AbortSignal.timeout(120_000) }) })
     } finally { busy = false }
   }
   const timer = setInterval(() => { void tick().catch(() => console.error('GitHub App worker unavailable; queued work retained.')) }, 1000)
