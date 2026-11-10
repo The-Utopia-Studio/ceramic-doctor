@@ -24,7 +24,11 @@ Supported source: JSX/TSX, JS/TS containing JSX, and CSS. The engine checks stat
 npx ceramic-doctor init-checks
 ```
 
-This creates `.github/workflows/ceramic-doctor.yml` without replacing an existing file. Commit the generated workflow. On PRs and pushes to `main`, the **Ceramic Doctor / code changes** job uses the same source engine, emits file/line annotations, adds a job summary, and uploads JSON/Markdown/SARIF reports as a seven-day artifact. It does not post PR comments or require write permissions to your source repository.
+This creates `.github/workflows/ceramic-doctor.yml` without replacing an existing file. Commit the generated workflow. On PRs and pushes to any branch, the **Ceramic Doctor / code changes** job uses the same source engine, emits file/line annotations, adds a job summary, and uploads JSON/Markdown/SARIF reports as a seven-day artifact. It does not post PR comments or require write permissions to your source repository. Branch deletion and tag events do not run reviews.
+
+The generated job has a ten-minute timeout and cancels superseded runs for the same event and branch/PR. PR and push concurrency groups stay separate so a push cannot cancel the required PR check. A branch with an open PR can generate two reviews; both count toward runner usage. New feature branches compare against the remote default branch rather than scanning the whole repository. A missing default-branch baseline fails instead of silently passing. The initial default-branch push still reviews the full tree.
+
+The summary measures the step window and estimates gross Linux compute at $0.006 per rounded minute ([GitHub rate checked 10 November 2026](https://docs.github.com/en/billing/reference/actions-runner-pricing)). A two-minute run is about $0.012; 500 such runs are $6 before allowances. This is a planning estimate, not an invoice or a measured runtime promise: runner startup/cleanup and artifact storage are excluded, and cancelled/timed-out runs can incur usage without a summary. Standard public-repository runners are free; private runs draw from the repository owner's shared included compute before overages. See [GitHub billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions). No model or hosted Doctor service fee applies to source checks. A timeout bounds one job, not monthly spend.
 
 The reusable Action can also be added to an existing workflow:
 
@@ -46,7 +50,7 @@ jobs:
           head: ${{ github.event.pull_request.head.sha }}
 ```
 
-Use this job under a `pull_request` trigger; the generated workflow also handles pushes and manual validation. Pin the Action to its release commit SHA if your repository requires immutable action references. The engine is installed in its own trusted Action directory with install scripts disabled, and PR code is read as data. CI reads `.ceramic-review.json` from the base commit, so a PR cannot silently disable its own checks by weakening the policy. New-branch pushes with an all-zero base inspect the full head tree. The Action runs locally on the GitHub runner and **does not upload your source to the hosted MCP**.
+Use this job under a `pull_request` trigger; the generated workflow also handles pushes and manual validation. The generated workflow pins the Action to the v0.3.1 release commit; pin hand-authored workflows to a reviewed release SHA too. The engine is installed in its own trusted Action directory with install scripts disabled, and PR code is read as data. CI reads `.ceramic-review.json` from the base commit, so a PR cannot silently disable its own checks by weakening the policy. Direct Action calls with an all-zero base inspect the full head tree; the generated workflow resolves new feature branches against the default branch first. The Action runs locally on the GitHub runner and **does not upload your source to the hosted MCP**.
 
 Serious/critical findings fail by default. `fail-on` can set the failure threshold. A check with no relevant UI source is labelled `SKIP`; missing/oversized/unreadable/unsupported UI files yield `BLOCKED`, not a pass. To require the check before merging, select **Ceramic Doctor / code changes** in your repository's branch/ruleset settings. Installing a workflow alone does not change branch protections.
 
