@@ -1,0 +1,9 @@
+{
+  "name": "Ceramic Doctor",
+  "url": "https://github.com/The-Utopia-Studio/ceramic-doctor",
+  "description": "Installation-scoped UI source review with exact-commit checks and actionable findings.",
+  "hook_attributes": { "url": "https://YOUR_APP_HOST/webhooks/github", "active": true },
+  "public": false,
+  "default_permissions": { "metadata": "read", "contents": "read", "checks": "write", "pull_requests": "write" },
+  "default_events": ["pull_request", "push", "check_run"]
+}
