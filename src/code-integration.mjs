@@ -8,31 +8,72 @@ export function codeWorkflow() {
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: ['**']
   workflow_dispatch:
     inputs:
       base:
-        description: Base commit to compare
+        description: Full base commit SHA to compare
         required: true
       head:
-        description: Head commit to inspect
+        description: Full head commit SHA to inspect
         required: true
 permissions:
   contents: read
+concurrency:
+  # Keep the PR check independent of the push check on the same branch.
+  group: ceramic-doctor-\${{ github.workflow }}-\${{ github.event_name }}-\${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 jobs:
   code-review:
     name: Ceramic Doctor / code changes
+    if: github.event.deleted != true
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
+      - name: Start usage measurement
+        id: usage
+        shell: bash
+        run: echo "started=$(date +%s)" >> "$GITHUB_OUTPUT"
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
           persist-credentials: false
           ref: \${{ inputs.head || github.event.pull_request.head.sha || github.sha }}
-      - uses: The-Utopia-Studio/ceramic-doctor@v0.3.1
+      - name: Resolve review commits
+        id: scope
+        shell: bash
+        env:
+          CD_BASE: \${{ inputs.base || github.event.pull_request.base.sha || github.event.before }}
+          CD_DEFAULT_BRANCH: \${{ github.event.repository.default_branch }}
+          CD_REF: \${{ github.ref }}
+        run: |
+          # A new feature branch has no previous SHA. Compare with the default
+          # branch instead of reviewing the entire repository as newly added.
+          if [[ "$CD_BASE" =~ ^0{40,64}$ && "$CD_REF" != "refs/heads/$CD_DEFAULT_BRANCH" ]]; then
+            CD_BASE=$(git rev-parse --verify --end-of-options "refs/remotes/origin/$CD_DEFAULT_BRANCH^{commit}")
+          fi
+          echo "base=$CD_BASE" >> "$GITHUB_OUTPUT"
+          echo "head=$(git rev-parse --verify HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: The-Utopia-Studio/ceramic-doctor@ea165cd066dfd991038e72ce045993b5f3511b7e # v0.3.1
         with:
-          base: \${{ inputs.base || github.event.pull_request.base.sha || github.event.before }}
-          head: \${{ inputs.head || github.event.pull_request.head.sha || github.sha }}
+          base: \${{ steps.scope.outputs.base }}
+          head: \${{ steps.scope.outputs.head }}
+      - name: Summarize estimated runner cost
+        if: always() && steps.usage.outputs.started != ''
+        shell: bash
+        env:
+          CD_STARTED: \${{ steps.usage.outputs.started }}
+        run: |
+          elapsed=$(( $(date +%s) - CD_STARTED ))
+          minutes=$(( (elapsed + 59) / 60 ))
+          estimate=$(awk -v minutes="$minutes" 'BEGIN { printf "%.3f", minutes * 0.006 }')
+          {
+            echo '### Runner usage estimate'
+            echo "Measured step window: $elapsed seconds; rounded estimate: $minutes Linux minutes."
+            echo "Gross compute estimate: USD $estimate at USD 0.006/minute (rate checked 2026-11-10)."
+            echo 'This is not an invoice. Runner startup/cleanup, storage, allowances and discounts are excluded. Standard public-repository runners are free.'
+            echo 'Push and PR events are separate runs; count both. Cancelled or timed-out jobs may have no summary but can still incur usage.'
+          } >> "$GITHUB_STEP_SUMMARY"
 `
 }
 
